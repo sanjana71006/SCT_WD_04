@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveTaskBtn = document.getElementById('saveTaskBtn');
     const updateTaskBtn = document.getElementById('updateTaskBtn');
     const themeToggle = document.getElementById('themeToggle');
+    const currentYear = document.getElementById('currentYear');
     
     // Form elements
     const taskTitleInput = document.getElementById('taskTitle');
@@ -15,7 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const taskCategorySelect = document.getElementById('taskCategory');
     const taskDueDateInput = document.getElementById('taskDueDate');
     const taskDueTimeInput = document.getElementById('taskDueTime');
-    const timePeriodSelect = document.getElementById('timePeriod');
     const taskNotesInput = document.getElementById('taskNotes');
     const categoryFilter = document.getElementById('categoryFilter');
     const priorityFilter = document.getElementById('priorityFilter');
@@ -30,25 +30,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let notificationTimeouts = {};
     
     // Initialize the app
-    async function init() {
-        await registerServiceWorker();
+    function init() {
         loadTasks();
         setupEventListeners();
         applySavedTheme();
         renderTasks();
         setDefaultDueDate();
         setupNotificationChecks();
-    }
-    
-    // Register Service Worker for background sync
-    async function registerServiceWorker() {
+        currentYear.textContent = new Date().getFullYear();
+        
+        // Register service worker for PWA
         if ('serviceWorker' in navigator) {
-            try {
-                await navigator.serviceWorker.register('sw.js');
-                console.log('Service Worker registered');
-            } catch (error) {
-                console.error('Service Worker registration failed:', error);
-            }
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
         }
     }
     
@@ -57,9 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const savedTasks = localStorage.getItem('tasks');
         if (savedTasks) {
             tasks = JSON.parse(savedTasks);
-            // Clear any old notification timeouts
             clearAllNotificationTimeouts();
-            // Setup notifications for existing tasks
             setupNotificationsForTasks();
         }
     }
@@ -94,10 +93,8 @@ document.addEventListener('DOMContentLoaded', function() {
         tasks.forEach(task => {
             if (!task.completed && task.dueDate) {
                 const dueDate = new Date(task.dueDate);
-                // If task is past due but not notified in the last hour
                 if (dueDate < now && (!task.lastNotified || new Date(task.lastNotified) < new Date(now.getTime() - 3600000))) {
                     showNotification(task);
-                    // Update lastNotified
                     task.lastNotified = new Date().toISOString();
                     saveTasksToLocalStorage();
                 }
@@ -113,16 +110,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const now = new Date();
         const timeUntilDue = dueDate.getTime() - now.getTime();
         
-        // Only schedule if due date is in the future
         if (timeUntilDue > 0) {
-            // Clear any existing timeout for this task
             if (notificationTimeouts[task.id]) {
                 clearTimeout(notificationTimeouts[task.id]);
             }
             
             notificationTimeouts[task.id] = setTimeout(() => {
                 showNotification(task);
-                // Update lastNotified
                 task.lastNotified = new Date().toISOString();
                 saveTasksToLocalStorage();
             }, timeUntilDue);
@@ -131,7 +125,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show browser notification
     function showNotification(task) {
-        // Request permission if not already granted
         if (Notification.permission !== 'granted') {
             Notification.requestPermission().then(permission => {
                 if (permission === 'granted') {
@@ -152,7 +145,6 @@ document.addEventListener('DOMContentLoaded', function() {
             notificationBody += `\nNotes: ${task.notes}`;
         }
         
-        // Show browser notification
         if ('Notification' in window) {
             new Notification(notificationTitle, {
                 body: notificationBody,
@@ -161,7 +153,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Also show in-app notification if tab is active
         if (!document.hidden) {
             showInAppNotification(notificationTitle, notificationBody);
         }
@@ -200,26 +191,34 @@ document.addEventListener('DOMContentLoaded', function() {
         updateTaskBtn.addEventListener('click', updateTask);
         themeToggle.addEventListener('click', toggleTheme);
         
-        // Priority selector
         priorityOptions.forEach(option => {
             option.addEventListener('click', function() {
                 selectPriority(this);
             });
         });
         
-        // Filter controls
         categoryFilter.addEventListener('change', renderTasks);
         priorityFilter.addEventListener('change', renderTasks);
         
-        // Close modal when clicking outside
         taskModal.addEventListener('click', function(e) {
             if (e.target === taskModal) {
                 closeTaskModal();
             }
         });
         
-        // Request notification permission on first interaction
         document.addEventListener('click', requestNotificationPermission, { once: true });
+        
+        // Prevent form submission on Enter key
+        taskTitleInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (isEditing) {
+                    updateTask();
+                } else {
+                    saveTask();
+                }
+            }
+        });
     }
     
     // Request notification permission
@@ -276,6 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveTaskBtn.style.display = 'block';
         updateTaskBtn.style.display = 'none';
         showModal();
+        taskTitleInput.focus();
     }
     
     // Open modal for editing an existing task
@@ -286,12 +286,10 @@ document.addEventListener('DOMContentLoaded', function() {
         currentTaskId = taskId;
         isEditing = true;
         
-        // Fill the form with task data
         taskTitleInput.value = task.title;
         taskNotesInput.value = task.notes || '';
         taskCategorySelect.value = task.category;
         
-        // Set priority
         priorityOptions.forEach(option => {
             option.classList.remove('active');
             if (option.dataset.value === task.priority) {
@@ -300,7 +298,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         taskPriorityInput.value = task.priority;
         
-        // Set due date and time
         if (task.dueDate) {
             const dueDate = new Date(task.dueDate);
             const formattedDate = dueDate.toISOString().split('T')[0];
@@ -308,12 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (task.dueTime) {
                 const [hours, minutes] = task.dueTime.split(':');
-                const hourNum = parseInt(hours, 10);
-                const displayHours = hourNum % 12 || 12;
-                const ampm = hourNum >= 12 ? 'PM' : 'AM';
-                
-                taskDueTimeInput.value = `${displayHours.toString().padStart(2, '0')}:${minutes}`;
-                timePeriodSelect.value = ampm;
+                taskDueTimeInput.value = `${hours.padStart(2, '0')}:${minutes}`;
             }
         }
         
@@ -346,9 +338,7 @@ document.addEventListener('DOMContentLoaded', function() {
         taskCategorySelect.value = 'work';
         taskDueDateInput.value = '';
         taskDueTimeInput.value = '';
-        timePeriodSelect.value = 'AM';
         
-        // Reset priority to medium
         priorityOptions.forEach(option => {
             option.classList.remove('active');
             if (option.dataset.value === 'medium') {
@@ -378,19 +368,10 @@ document.addEventListener('DOMContentLoaded', function() {
             dueDate = new Date(taskDueDateInput.value);
             
             if (taskDueTimeInput.value) {
-                let hours = parseInt(taskDueTimeInput.value.split(':')[0], 10);
-                const minutes = parseInt(taskDueTimeInput.value.split(':')[1], 10);
-                
-                // Convert to 24-hour format
-                if (timePeriodSelect.value === 'PM' && hours < 12) {
-                    hours += 12;
-                } else if (timePeriodSelect.value === 'AM' && hours === 12) {
-                    hours = 0;
-                }
-                
-                dueDate.setHours(hours);
-                dueDate.setMinutes(minutes);
-                dueTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                const [hours, minutes] = taskDueTimeInput.value.split(':');
+                dueDate.setHours(parseInt(hours, 10));
+                dueDate.setMinutes(parseInt(minutes, 10));
+                dueTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
             }
         }
         
@@ -413,7 +394,6 @@ document.addEventListener('DOMContentLoaded', function() {
         scheduleNotification(newTask);
         closeTaskModal();
         
-        // Add glow effect to the new task
         const newTaskElement = document.querySelector(`[data-task-id="${newTask.id}"]`);
         if (newTaskElement) {
             newTaskElement.classList.add('glow');
@@ -444,19 +424,10 @@ document.addEventListener('DOMContentLoaded', function() {
             dueDate = new Date(taskDueDateInput.value);
             
             if (taskDueTimeInput.value) {
-                let hours = parseInt(taskDueTimeInput.value.split(':')[0], 10);
-                const minutes = parseInt(taskDueTimeInput.value.split(':')[1], 10);
-                
-                // Convert to 24-hour format
-                if (timePeriodSelect.value === 'PM' && hours < 12) {
-                    hours += 12;
-                } else if (timePeriodSelect.value === 'AM' && hours === 12) {
-                    hours = 0;
-                }
-                
-                dueDate.setHours(hours);
-                dueDate.setMinutes(minutes);
-                dueTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                const [hours, minutes] = taskDueTimeInput.value.split(':');
+                dueDate.setHours(parseInt(hours, 10));
+                dueDate.setMinutes(parseInt(minutes, 10));
+                dueTime = `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`;
             }
         }
         
@@ -480,7 +451,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Delete a task
     function deleteTask(taskId) {
         if (confirm('Are you sure you want to delete this task?')) {
-            // Clear any scheduled notification
             if (notificationTimeouts[taskId]) {
                 clearTimeout(notificationTimeouts[taskId]);
                 delete notificationTimeouts[taskId];
@@ -498,7 +468,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (task) {
             task.completed = !task.completed;
             
-            // Clear or set notification based on completion status
             if (task.completed && notificationTimeouts[taskId]) {
                 clearTimeout(notificationTimeouts[taskId]);
                 delete notificationTimeouts[taskId];
@@ -509,7 +478,6 @@ document.addEventListener('DOMContentLoaded', function() {
             saveTasksToLocalStorage();
             renderTasks();
             
-            // Add completion animation
             const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
             if (taskElement) {
                 taskElement.classList.add('task-complete-animation');
@@ -553,7 +521,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Sort tasks: incomplete first, then by due date
         filteredTasks.sort((a, b) => {
             if (a.completed !== b.completed) {
                 return a.completed ? 1 : -1;
@@ -571,7 +538,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         tasksContainer.innerHTML = filteredTasks.map(task => createTaskElement(task)).join('');
         
-        // Add event listeners to all task action buttons
         document.querySelectorAll('.edit-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -605,10 +571,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let formattedTime = '';
         if (task.dueTime) {
             const [hours, minutes] = task.dueTime.split(':');
-            const hourNum = parseInt(hours, 10);
-            const ampm = hourNum >= 12 ? 'PM' : 'AM';
-            const displayHours = hourNum % 12 || 12;
-            formattedTime = `${displayHours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+            formattedTime = `${parseInt(hours, 10) % 12 || 12}:${minutes} ${parseInt(hours, 10) >= 12 ? 'PM' : 'AM'}`;
         }
         
         const priorityClass = `priority-${task.priority}`;
@@ -643,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="task-detail">
                         <i class="fas fa-tag"></i>
-                        <span class="category-tag">${categoryText}</span>
+                        <span>${categoryText}</span>
                     </div>
                 </div>
                 <div class="task-due">

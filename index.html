@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TO-DO WEB APP - Organize your tasks, achieve your goals</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TaskNest - Smart To-Do List</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
 </head>
 <body>
     <div class="app-container">
@@ -14,7 +15,7 @@
             <div class="header-content">
                 <div class="logo">
                     <i class="fas fa-tasks"></i>
-                    <h1>TO-DO WEB APP</h1>
+                    <h1>TaskNest</h1>
                 </div>
                 <p class="tagline">Organize your tasks, achieve your goals</p>
             </div>
@@ -28,7 +29,7 @@
         <main class="app-main">
             <section class="tasks-section">
                 <div class="section-header">
-                    <h2><i class="fas fa-list-check"></i> All Tasks</h2>
+                    <h2><i class="fas fa-list-check"></i> My Tasks</h2>
                     <div class="filter-controls">
                         <select id="categoryFilter" class="filter-select">
                             <option value="all">All Categories</option>
@@ -37,7 +38,6 @@
                             <option value="shopping">Shopping</option>
                             <option value="health">Health</option>
                             <option value="education">Education</option>
-                            <option value="other">Other</option>
                         </select>
                         <select id="priorityFilter" class="filter-select">
                             <option value="all">All Priorities</option>
@@ -53,8 +53,8 @@
                         <div class="no-tasks-icon">
                             <i class="fas fa-cloud"></i>
                         </div>
-                        <h3>No tasks found</h3>
-                        <p>Start by adding your first task!</p>
+                        <h3>No tasks yet</h3>
+                        <p>Tap the + button to add your first task</p>
                     </div>
                 </div>
             </section>
@@ -72,8 +72,8 @@
                     
                     <div class="modal-body">
                         <div class="form-group">
-                            <label for="taskTitle">Task Title</label>
-                            <input type="text" id="taskTitle" placeholder="What needs to be done?">
+                            <label for="taskTitle">Task Title*</label>
+                            <input type="text" id="taskTitle" placeholder="What needs to be done?" required>
                         </div>
                         
                         <div class="form-row">
@@ -101,7 +101,6 @@
                                     <option value="shopping">Shopping</option>
                                     <option value="health">Health</option>
                                     <option value="education">Education</option>
-                                    <option value="other">Other</option>
                                 </select>
                             </div>
                         </div>
@@ -114,13 +113,7 @@
                             
                             <div class="form-group">
                                 <label for="taskDueTime">Due Time</label>
-                                <div class="time-input-group">
-                                    <input type="time" id="taskDueTime">
-                                    <select id="timePeriod" class="time-period-select">
-                                        <option value="AM">AM</option>
-                                        <option value="PM">PM</option>
-                                    </select>
-                                </div>
+                                <input type="time" id="taskDueTime">
                             </div>
                         </div>
                         
@@ -140,7 +133,7 @@
         </main>
 
         <footer class="app-footer">
-            <p>© 2025 TaskNest | Organize your life</p>
+            <p>© <span id="currentYear"></span> TaskNest | Organize your life</p>
         </footer>
     </div>
 
