@@ -1,4 +1,4 @@
-# TaskNest - Smart To-Do List Web App
+# Smart To-Do List Web App
 
 ## Project Description
 
